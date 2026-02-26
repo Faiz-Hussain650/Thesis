@@ -42,7 +42,3 @@ The defenses were evaluated using **GPT-2** (Few-Shot Inference) on a sample of 
 
 ---
 
-## 💻 How to Run This Code
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/YOUR_USERNAME/LLM-Defense-Thesis.git](https://github.com/YOUR_USERNAME/LLM-Defense-Thesis.git)
