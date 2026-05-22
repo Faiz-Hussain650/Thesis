@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Proactive LLM Defence Demo</title>
+<style>
+  :root {
+    --bg:     #0f1117;
+    --card:   #1a1d27;
+    --border: #2d3148;
+    --accent: #6c63ff;
+    --green:  #22c55e;
+    --red:    #ef4444;
+    --yellow: #f59e0b;
+    --text:   #e2e8f0;
+    --muted:  #94a3b8;
+    --cloak:  #3b82f6;
+    --trap:   #f97316;
+    --honey:  #eab308;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+    padding: 22px 40px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+  header p  { color: #a5b4fc; margin-top: 3px; font-size: 0.82rem; }
+  .badge {
+    display: inline-block; background: var(--green); color: #fff;
+    font-size: 0.65rem; padding: 2px 8px; border-radius: 999px;
+    margin-left: 8px; vertical-align: middle; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+  .unina-logo { color: #a5b4fc; font-size: 0.78rem; text-align:right; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 20px; }
+
+  .layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; align-items: start; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px;
+  }
+  .card-title {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-bottom: 14px; font-weight: 600;
+  }
+
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; margin-top: 14px; }
+  select, textarea {
+    width: 100%; background: #0f1117; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); padding: 9px 13px;
+    font-size: 0.88rem; font-family: inherit; transition: border-color .2s;
+  }
+  select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+
+  .example-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .ex-btn {
+    background: #1e2235; border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 0.74rem;
+    color: var(--muted); cursor: pointer; transition: all .18s;
+  }
+  .ex-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .defence-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 6px; }
+  .d-card {
+    border: 2px solid var(--border); border-radius: 10px; padding: 13px 10px;
+    cursor: pointer; transition: all .18s; text-align: center; user-select: none;
+  }
+  .d-card:hover { border-color: var(--accent); }
+  .d-card.on-cloak { border-color: var(--cloak); background: rgba(59,130,246,.1); }
+  .d-card.on-trap  { border-color: var(--trap);  background: rgba(249,115,22,.1); }
+  .d-card.on-honey { border-color: var(--honey); background: rgba(234,179,8,.1); }
+  .d-icon  { font-size: 1.6rem; }
+  .d-name  { font-weight: 700; font-size: 0.8rem; margin-top: 5px; }
+  .d-desc  { font-size: 0.68rem; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+
+  #runBtn {
+    width: 100%; margin-top: 18px; padding: 13px;
+    background: linear-gradient(135deg, #6c63ff, #4f46e5);
+    border: none; border-radius: 10px; color: #fff;
+    font-size: 0.95rem; font-weight: 700; cursor: pointer; letter-spacing: .4px;
+    transition: opacity .2s, transform .1s;
+  }
+  #runBtn:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+  #runBtn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid #ffffff44; border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 7px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status bar */
+  #statusBar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 15px; margin-bottom: 18px;
+    font-size: 0.8rem; color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-green  { background: var(--green); }
+  .dot-red    { background: var(--red); }
+  .dot-yellow { background: var(--yellow); animation: pulse 1s infinite; }
+
+  /* Results */
+  .results-area { display: flex; flex-direction: column; gap: 16px; }
+
+  .empty-state {
+    text-align: center; padding: 70px 20px; color: var(--muted);
+  }
+  .empty-state .big-icon { font-size: 3.5rem; margin-bottom: 14px; }
+
+  /* Answer row */
+  .answer-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .answer-letter {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1.3rem; flex-shrink: 0;
+  }
+  .al-neutral { background: rgba(148,163,184,.15); color: var(--muted);  border: 2px solid var(--muted); }
+  .al-changed { background: rgba(239,68,68,.15);   color: var(--red);    border: 2px solid var(--red); }
+  .al-same    { background: rgba(99,102,241,.15);  color: #818cf8;       border: 2px solid #818cf8; }
+
+  .arrow-label { font-size: 1.1rem; color: var(--muted); }
+  .answer-meta { flex: 1; }
+  .answer-meta strong { font-size: 0.9rem; }
+  .answer-meta small  { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+
+  /* Pills */
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+  }
+  .pill-green  { background: rgba(34,197,94,.15);  color: var(--green); }
+  .pill-red    { background: rgba(239,68,68,.15);   color: var(--red); }
+  .pill-blue   { background: rgba(99,102,241,.15);  color: #818cf8; }
+  .pill-yellow { background: rgba(234,179,8,.15);   color: var(--yellow); }
+
+  /* Question display */
+  .q-display {
+    background: #090b10; border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+    font-family: 'Courier New', monospace; font-size: 0.76rem;
+    line-height: 1.65; word-break: break-word; white-space: pre-wrap;
+    max-height: 130px; overflow-y: auto;
+  }
+  .hchar {
+    background: rgba(239,68,68,.3); color: #fca5a5;
+    border-radius: 3px; padding: 0 3px; font-size: 0.68rem;
+    font-family: monospace; font-weight: 700;
+  }
+  .tchar {
+    background: rgba(249,115,22,.3); color: #fdba74;
+    border-radius: 3px; padding: 0 3px; font-size: 0.68rem;
+    font-family: monospace; font-weight: 700;
+  }
+
+  /* Info box */
+  .info-box {
+    background: rgba(99,102,241,.07); border: 1px solid rgba(99,102,241,.25);
+    border-radius: 7px; padding: 9px 13px; font-size: 0.78rem; color: #a5b4fc; margin-top: 10px;
+  }
+
+  /* Detection banner */
+  .det-banner {
+    border-radius: 10px; padding: 14px 18px; text-align: center;
+    font-weight: 700; font-size: 0.95rem; margin-bottom: 12px;
+  }
+  .det-yes { background: rgba(239,68,68,.12); border: 2px solid var(--red);   color: var(--red); }
+  .det-no  { background: rgba(34,197,94,.12); border: 2px solid var(--green); color: var(--green); }
+
+  /* Divider */
+  .section-label {
+    font-size: 0.72rem; color: var(--muted); margin-bottom: 5px;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+
+  /* How it works panel */
+  .how-card { margin-top: 16px; }
+  .how-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .how-item:last-child { border-bottom: none; }
+  .how-item p { font-size: 0.8rem; color: var(--muted); margin-top: 4px; line-height: 1.55; }
+
+  @media(max-width:900px) { .layout { grid-template-columns: 1fr; } }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🛡️ Proactive LLM Defence Demo <span class="badge">● LIVE</span></h1>
+    <p>Cloak · Honey · Trap — Real-time adversarial defence against language model agents</p>
+  </div>
+  <div class="unina-logo">
+    Università degli Studi di Napoli Federico II<br>
+    <span style="color:#818cf8">Faiz Hussain · Prof. Giancarlo Sperli</span>
+  </div>
+</header>
+
+<main>
+  <div id="statusBar">
+    <span class="dot dot-yellow" id="sDot"></span>
+    <span id="sText">Checking Ollama connection…</span>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT: Controls -->
+    <div>
+      <div class="card">
+        <div class="card-title">⚙️ Configuration</div>
+
+        <label>AI Model</label>
+        <select id="modelSel">
+          <option value="llama3.2:1b">Llama-3.2-1B — Fastest</option>
+          <option value="llama3.2:3b" selected>Llama-3.2-3B — Balanced</option>
+          <option value="mistral">Mistral-7B — Most capable</option>
+          <option value="qwen2.5:1.5b">Qwen-2.5-1.5B</option>
+        </select>
+
+        <label>Question (multiple-choice)</label>
+        <textarea id="qInput" placeholder="Type a question with A/B/C/D options, or click an example below…"></textarea>
+
+        <div class="example-row">
+          <span style="font-size:.72rem;color:var(--muted);width:100%;margin-bottom:2px;">Quick examples:</span>
+          <span class="ex-btn" onclick="setEx('medical')">🏥 Medical</span>
+          <span class="ex-btn" onclick="setEx('science')">🔬 Science</span>
+          <span class="ex-btn" onclick="setEx('history')">📜 History</span>
+          <span class="ex-btn" onclick="setEx('law')">⚖️ Law</span>
+          <span class="ex-btn" onclick="setEx('finance')">💰 Finance</span>
+          <span class="ex-btn" onclick="setEx('cs')">💻 Computing</span>
+        </div>
+
+        <label style="margin-top:18px;">Defence Strategies</label>
+        <div class="defence-row">
+          <div class="d-card" id="dc-cloak" onclick="toggleD('cloak')">
+            <div class="d-icon">🔵</div>
+            <div class="d-name" style="color:var(--cloak)">Cloak</div>
+            <div class="d-desc">Invisible Unicode chars into words</div>
+          </div>
+          <div class="d-card" id="dc-honey" onclick="toggleD('honey')">
+            <div class="d-icon">🟡</div>
+            <div class="d-name" style="color:var(--honey)">Honey</div>
+            <div class="d-desc">Secret watermark detection tokens</div>
+          </div>
+          <div class="d-card" id="dc-trap" onclick="toggleD('trap')">
+            <div class="d-icon">🟠</div>
+            <div class="d-name" style="color:var(--trap)">Trap</div>
+            <div class="d-desc">Rare BPE tokens to confuse model</div>
+          </div>
+        </div>
+
+        <button id="runBtn" onclick="runDemo()">▶ Run Demo</button>
+      </div>
+
+      <!-- How it works -->
+      <div class="card how-card">
+        <div class="card-title">📖 How Each Defence Works</div>
+        <div class="how-item">
+          <strong style="color:var(--cloak)">🔵 Cloak</strong>
+          <p>Injects invisible backspace characters (U+0008) into the middle of words. Text looks identical to humans but the AI's tokeniser reads it differently — often causing it to pick a different answer.</p>
+        </div>
+        <div class="how-item">
+          <strong style="color:var(--honey)">🟡 Honey</strong>
+          <p>Embeds invisible soft-hyphen characters (U+00AD) at the end of the question. If the AI copies them in its response, we know the model saw a tampered question — like a secret digital watermark.</p>
+        </div>
+        <div class="how-item">
+          <strong style="color:var(--trap)">🟠 Trap</strong>
+          <p>Appends rare tokens that exist in the AI vocabulary but almost never appear naturally. These disrupt the model's attention mechanism and cause answer changes.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div id="results">
+      <div class="card empty-state">
+        <div class="big-icon">🔬</div>
+        <p style="font-size:.95rem;font-weight:600;">Results will appear here</p>
+        <p style="font-size:.8rem;margin-top:6px;">Choose a question, select one or more defences, and click Run Demo.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const EXAMPLES = {
+  medical: `What is the primary function of red blood cells in the human body?
+A) Fight infections and produce antibodies
+B) Transport oxygen from the lungs to body tissues
+C) Produce hormones for metabolism regulation
+D) Digest nutrients absorbed from the intestine`,
+
+  science: `What is the approximate speed of light in a vacuum?
+A) 150,000 kilometres per second
+B) 450,000 kilometres per second
+C) 300,000 kilometres per second
+D) 200,000 kilometres per second`,
+
+  history: `In which year did World War II officially end?
+A) 1943
+B) 1944
+C) 1946
+D) 1945`,
+
+  law: `Which legal principle protects a person from being tried twice for the same crime?
+A) Habeas corpus
+B) Presumption of innocence
+C) Double jeopardy
+D) Due process`,
+
+  finance: `What does the term GDP stand for in economics?
+A) General Domestic Product
+B) Government Demand Policy
+C) Gross Domestic Product
+D) Global Distribution Plan`,
+
+  cs: `Which data structure operates on a Last-In-First-Out (LIFO) principle?
+A) Queue
+B) Stack
+C) Linked list
+D) Hash table`,
+};
+
+function setEx(k) { document.getElementById('qInput').value = EXAMPLES[k]; }
+
+// Defence toggle
+const active = { cloak:false, honey:false, trap:false };
+function toggleD(n) {
+  active[n] = !active[n];
+  const el = document.getElementById('dc-'+n);
+  el.classList.toggle('on-'+n, active[n]);
+}
+
+// Check Ollama
+async function checkOllama() {
+  try {
+    const r = await fetch('/check_ollama');
+    const d = await r.json();
+    const dot = document.getElementById('sDot');
+    const txt = document.getElementById('sText');
+    if (d.status === 'ok') {
+      dot.className = 'dot dot-green';
+      txt.innerHTML = `✅ Ollama connected &nbsp;|&nbsp; Models: <strong>${d.models.join(' &nbsp;·&nbsp; ')}</strong>`;
+    } else {
+      dot.className = 'dot dot-red';
+      txt.textContent = '❌ Ollama not reachable — run: ollama serve';
+    }
+  } catch(e) {
+    document.getElementById('sDot').className = 'dot dot-red';
+    document.getElementById('sText').textContent = '❌ Server not responding';
+  }
+}
+checkOllama();
+
+// Highlight hidden characters
+function hl(str) {
+  const safe = str
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return safe
+    .replace(/\x08/g,  '<span class="hchar">⌫ U+0008</span>')
+    .replace(/​/g,'<span class="hchar">ZWSP</span>')
+    .replace(/­/g,'<span class="hchar">SHY</span>')
+    .replace(/\x1b/g,  '<span class="hchar">ESC</span>')
+    .replace(/а/g,     '<span class="hchar">Cyr-а</span>')
+    .replace(/Ãł/g,    '<span class="tchar">🪤 Ãł</span>')
+    .replace(/,@/g,    '<span class="tchar">🪤 ,@</span>')
+    .replace(/Ġwashington/g,'<span class="tchar">🪤 Ġwashington</span>')
+    .replace(/\bENC\b/g,'<span class="tchar">🪤 ENC</span>');
+}
+
+// Run demo
+async function runDemo() {
+  const q = document.getElementById('qInput').value.trim();
+  if (!q) { alert('Please enter a question.'); return; }
+  const chosen = Object.keys(active).filter(k => active[k]);
+  if (!chosen.length) { alert('Please select at least one defence.'); return; }
+  const model = document.getElementById('modelSel').value;
+  const btn   = document.getElementById('runBtn');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Querying model…';
+
+  document.getElementById('results').innerHTML = `
+    <div class="card" style="text-align:center;padding:80px 20px;">
+      <div class="spinner" style="width:44px;height:44px;border-width:3px;margin:0 auto 16px;display:block;"></div>
+      <p style="font-weight:600;">Running ${chosen.length + 1} queries on <em>${model}</em>…</p>
+      <p style="color:var(--muted);font-size:.8rem;margin-top:6px;">Clean query + ${chosen.join(' + ')} defence(s). Please wait 20–60 seconds.</p>
+    </div>`;
+
+  try {
+    const res  = await fetch('/run_demo', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q, model, defences: chosen }),
+    });
+    const data = await res.json();
+    render(data, model);
+  } catch(e) {
+    document.getElementById('results').innerHTML =
+      `<div class="card"><p style="color:var(--red)">❌ Error: ${e.message}</p></div>`;
+  }
+  btn.disabled = false;
+  btn.innerHTML = '▶ Run Demo';
+}
+
+function render(data, model) {
+  const clean = data.clean;
+  const def   = data.defences || {};
+  let html = '<div class="results-area">';
+
+  // ── Clean ──
+  html += `
+  <div class="card">
+    <div class="card-title">✅ Step 1 — Clean Query (No Defence)</div>
+    <div class="answer-row">
+      <div class="answer-letter al-neutral">${clean.answer}</div>
+      <div class="answer-meta">
+        <strong>Model answered: ${clean.answer}</strong>
+        <small>Running on ${model} with no modifications</small>
+      </div>
+      <span class="pill pill-blue">Baseline</span>
+    </div>
+    <div class="section-label">Question sent to model:</div>
+    <div class="q-display">${hl(clean.question)}</div>
+    ${clean.error ? `<p style="color:var(--red);font-size:.78rem;margin-top:8px;">⚠ ${clean.error}</p>` : ''}
+  </div>`;
+
+  // ── Cloak ──
+  if (def.cloak) {
+    const d = def.cloak;
+    html += `
+  <div class="card" style="border-color:var(--cloak)">
+    <div class="card-title" style="color:var(--cloak)">🔵 Step 2 — Cloak Defence Applied</div>
+    <div class="answer-row">
+      <div class="answer-letter al-neutral">${clean.answer}</div>
+      <div class="arrow-label">→</div>
+      <div class="answer-letter ${d.changed ? 'al-changed' : 'al-same'}">${d.answer}</div>
+      <div class="answer-meta">
+        <strong>${d.changed ? '⚡ Answer changed! Defence worked.' : 'Answer unchanged.'}</strong>
+        <small>Was: ${clean.answer} &nbsp;→&nbsp; Now: ${d.answer}</small>
+      </div>
+      <span class="pill ${d.changed ? 'pill-red' : 'pill-blue'}">${d.changed ? 'FOOLED ✓' : 'Resisted'}</span>
+    </div>
+    <div class="info-box">💡 ${d.injection_info}</div>
+    <div class="section-label" style="margin-top:12px;">Modified question (red = hidden chars):</div>
+    <div class="q-display">${hl(d.defended_question)}</div>
+    ${d.error ? `<p style="color:var(--red);font-size:.78rem;margin-top:8px;">⚠ ${d.error}</p>` : ''}
+  </div>`;
+  }
+
+  // ── Honey ──
+  if (def.honey) {
+    const d = def.honey;
+    html += `
+  <div class="card" style="border-color:var(--honey)">
+    <div class="card-title" style="color:var(--honey)">🟡 Step 3 — Honey Detection</div>
+    <div class="det-banner ${d.detected ? 'det-yes' : 'det-no'}">
+      ${d.detected
+        ? '🚨 DETECTED — The model reproduced the hidden soft-hyphen character in its response!'
+        : '✅ NOT DETECTED — The model did not copy the hidden character back.'}
+    </div>
+    <div class="info-box">💡 ${d.injection_info}</div>
+    <div class="section-label" style="margin-top:10px;">Question with honey tokens (yellow = honey chars):</div>
+    <div class="q-display">${hl(d.defended_question)}</div>
+    <div class="section-label" style="margin-top:10px;">Model raw response:</div>
+    <div class="q-display">${hl(d.raw || d.answer)}</div>
+    ${d.error ? `<p style="color:var(--red);font-size:.78rem;margin-top:8px;">⚠ ${d.error}</p>` : ''}
+  </div>`;
+  }
+
+  // ── Trap ──
+  if (def.trap) {
+    const d = def.trap;
+    html += `
+  <div class="card" style="border-color:var(--trap)">
+    <div class="card-title" style="color:var(--trap)">🟠 Step 4 — Trap Defence Applied</div>
+    <div class="answer-row">
+      <div class="answer-letter al-neutral">${clean.answer}</div>
+      <div class="arrow-label">→</div>
+      <div class="answer-letter ${d.changed ? 'al-changed' : 'al-same'}">${d.answer}</div>
+      <div class="answer-meta">
+        <strong>${d.changed ? '⚡ Answer changed! Defence worked.' : 'Answer unchanged.'}</strong>
+        <small>Was: ${clean.answer} &nbsp;→&nbsp; Now: ${d.answer}</small>
+      </div>
+      <span class="pill ${d.changed ? 'pill-red' : 'pill-blue'}">${d.changed ? 'FOOLED ✓' : 'Resisted'}</span>
+    </div>
+    <div class="info-box">💡 ${d.injection_info}</div>
+    <div class="section-label" style="margin-top:12px;">Modified question (orange = trap tokens):</div>
+    <div class="q-display">${hl(d.defended_question)}</div>
+    ${d.error ? `<p style="color:var(--red);font-size:.78rem;margin-top:8px;">⚠ ${d.error}</p>` : ''}
+  </div>`;
+  }
+
+  html += '</div>';
+  document.getElementById('results').innerHTML = html;
+}
+</script>
+</body>
+</html>

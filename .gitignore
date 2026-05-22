@@ -1,0 +1,22 @@
+# Excluded large files
+mmlu_auxiliary_train.csv
+thesis_main.tex
+
+# Virtual environment
+.venv/
+
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Large CSVs if any in subfolders
+mmlu_auxiliary_train*.csv

@@ -1,0 +1,5 @@
+Model,Baseline Acc%,Best Cloak,Best Cloak DSR%,Best Trap,Best Trap DSR%,Honey SHY-5%,Honey ESC-5%,Honey Homoglyph
+Llama-1B,37.5,T1.2-Backspace-Mid2,5.3,T4.4-Mixed-End,8.8,100.0,100.0,100.0
+Llama-3B,54.7,T1.2-Backspace-High5,5.6,T4.4-High-End10,7.4,82.1,98.2,100.0
+Mistral-7B,57.2,T1.2-Backspace-High5,4.2,T4.4-Mixed-End,3.9,82.8,87.7,100.0
+Qwen-1.5B,58.6,T1.2-Backspace-High5,5.6,T4.4-Mixed-End,6.7,91.6,96.1,100.0
